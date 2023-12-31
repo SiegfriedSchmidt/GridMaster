@@ -7,8 +7,8 @@ PROCEDURE MoveLeftAndUp
 LEFT 2
 UP 2
 ENDPROC
-
-SET X = 4
+SET Y = 5
+SET X = Y
 REPEAT X
 IFBLOCK RIGHT
 REPEAT 3
@@ -38,22 +38,26 @@ class C:
     CALL = "CALL"
     JMP = "JMP"
     MOV = "MOV"
+    DIR = "DIR"
 
 
-def print_code_lines(code_lines: List[List[str]]):
+def print_code_lines(code_lines: List[List[str]], changes=None):
     for idx, line in enumerate(code_lines):
-        print(f'{idx:<2} {line}')
+        if changes:
+            print(f'{idx:<2} {changes[idx]:<2} {line} ')
+        else:
+            print(f'{idx:<2} {line}')
 
 
 def initial_preparations(code: str) -> List[List[str]]:
     return list(filter(lambda l: len(l) > 0, map(lambda s: s.strip().split(), code.strip().splitlines())))
 
 
-def check_n(var: str, digit_required=False) -> bool:
+def check_n(var: str) -> bool:
     if var.isdigit():
         return 1 <= int(var) <= 1000
     else:
-        return not digit_required and not var[0].isdigit()
+        return not var[0].isdigit()
 
 
 def check_command_syntax(code_lines: List[List[str]]) -> str:
@@ -74,7 +78,7 @@ def check_command_syntax(code_lines: List[List[str]]) -> str:
                     if len(sep) == 2:
                         line = [C.SET, sep[0], '=', sep[1]]
 
-                if len(line) == 4 and not line[1][0].isdigit() and line[2] == '=' and check_n(line[3], True):
+                if len(line) == 4 and not line[1][0].isdigit() and line[2] == '=' and check_n(line[3]):
                     line.pop(2)
                     code_lines[idx] = line
                     continue
@@ -88,21 +92,21 @@ def check_command_syntax(code_lines: List[List[str]]) -> str:
     return ''
 
 
-def check_variable_declaration_and_replace_consts(code_lines: List[List[str]]) -> str:
+def check_variable_declaration(code_lines: List[List[str]], changes: List[int]) -> str:
     variables = {}
     for idx, line in enumerate(code_lines):
         if line[0] == C.SET:
             variables[line[1]] = line[2]
         elif line[0] in [C.RIGHT, C.LEFT, C.UP, C.DOWN, C.REPEAT] and not line[1].isdigit():
             if val := variables.get(line[1]):
-                code_lines[idx][1] = val
+                changes[idx] = int(val)
             else:
                 return f'Usage undefined variable "{" ".join(line)}"'
 
     return ''
 
 
-def check_procedure_declaration_and_replace_procedures(code_lines: List[List[str]]) -> str:
+def check_procedure_declaration(code_lines: List[List[str]], changes: List[int]) -> str:
     procedures = {}
 
     start = -1
@@ -113,9 +117,9 @@ def check_procedure_declaration_and_replace_procedures(code_lines: List[List[str
             start = idx
         elif line[0] == C.CALL:
             if val := procedures.get(line[1]):
-                code_lines[val[0]] = ["JUMP", val[1] + 1]
-                code_lines[val[1]] = ["JUMP", idx + 1]
-                code_lines[idx] = ["JUMP", val[0] + 1]
+                changes[val[0]] = int(val[1])
+                changes[val[1]] = int(idx)
+                changes[idx] = int(val[0])
             else:
                 return f'Call undefined procedure "{" ".join(line)}"'
         elif line[0] == C.ENDPROC:
@@ -124,7 +128,7 @@ def check_procedure_declaration_and_replace_procedures(code_lines: List[List[str
     return ''
 
 
-def check_code_nesting(code_lines: List[List[str]], blocks: List[Tuple[int, int]]) -> str:
+def check_code_nesting(code_lines: List[List[str]], changes: List[int]) -> str:
     alias = {
         C.IFBLOCK: 1,
         C.ENDIF: -1,
@@ -148,7 +152,8 @@ def check_code_nesting(code_lines: List[List[str]], blocks: List[Tuple[int, int]
             else:
                 if len(stack) > 0 and (start := stack.pop())[0] == -val:
                     if code_lines[start[1]][0] != C.PROCEDURE:
-                        blocks.append((start[1], idx))
+                        changes[start[1]] = int(idx)
+                        changes[idx] = int(start[1])
                     cur_nesting -= 1
                 else:
                     return ' '.join(line)
@@ -162,7 +167,7 @@ def check_code_nesting(code_lines: List[List[str]], blocks: List[Tuple[int, int]
     return ''
 
 
-def bytecode_compile(code_lines: List[List[str]], blocks: List[Tuple[int, int]]) -> List[List[str]]:
+def bytecode_compile(code_lines: List[List[str]], changes: List[int]) -> List[List[str]]:
     bytecode_lines: List[List[str]] = []
     for line in code_lines:
         ...
@@ -172,23 +177,22 @@ def bytecode_compile(code_lines: List[List[str]], blocks: List[Tuple[int, int]])
 
 def main():
     code_lines = initial_preparations(PROGRAM)
+    changes = [-1 for i in range(len(code_lines))]
 
     if error := check_command_syntax(code_lines):
         return print(f'Syntax error: {error}')
 
-    if error := check_variable_declaration_and_replace_consts(code_lines):
+    if error := check_variable_declaration(code_lines, changes):
         return print(f'Variable declaration error: {error}')
 
-    if error := check_procedure_declaration_and_replace_procedures(code_lines):
+    if error := check_procedure_declaration(code_lines, changes):
         return print(f'Procedure declaration error: {error}')
 
-    blocks: List[Tuple[int, int]] = []
-    if error := check_code_nesting(code_lines, blocks):
+    if error := check_code_nesting(code_lines, changes):
         return print(f'Nesting error: {error}')
 
-    bytecode_lines = bytecode_compile(code_lines, blocks)
-    print_code_lines(code_lines)
-    print(blocks)
+    bytecode_lines = bytecode_compile(code_lines, changes)
+    print_code_lines(code_lines, changes)
 
     field = np.zeros((N, N), dtype=np.int_)
 
