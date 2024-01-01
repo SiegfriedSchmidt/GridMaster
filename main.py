@@ -2,6 +2,9 @@ import numpy as np
 from typing import List, Dict, Tuple
 from pprint import pprint
 from time import sleep
+import colorama as cl
+
+cl.init()
 
 N = 21
 
@@ -73,7 +76,7 @@ def show_field(field):
     for y in range(N):
         for x in range(N):
             if field[x, y]:
-                print('X', end='  ')
+                print(f'{cl.Fore.GREEN}X{cl.Fore.RESET}', end='  ')
             else:
                 print('0', end='  ')
         print()
@@ -351,6 +354,7 @@ def run_bytecode(bytecode_lines: List[List]):
         if cmd in [BC.RIGHT, BC.LEFT, BC.UP, BC.DOWN]:
             field[x, y] = 1
             show_field(field)
+            print(f'\x1b[{N + 2}A\r\033[K')
             sleep(0.5)
             # field[x, y] = 0
 
