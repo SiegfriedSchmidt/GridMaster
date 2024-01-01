@@ -55,36 +55,13 @@ class C:
 
 
 class BC:
-    RIGHT = "RIGHT"
-    LEFT = "LEFT"
-    UP = "UP"
-    DOWN = "DOWN"
+    DISPLACE = "DISPLACE"
     JMP = "JMP"
     CMP = "CMP"
     SUB = "SUB"
     MOV = "MOV"
     LOAD = "LOAD"
     LOAD_CONST = "LOAD_CONST"
-
-
-class Array(np.ndarray):
-    def __setitem__(self, key, value):
-        super().__setitem__((key[0], N - key[1] - 1), value)
-
-
-def show_field(field):
-    for y in range(N):
-        for x in range(N):
-            if field[x, y]:
-                print(f'{cl.Fore.GREEN}X{cl.Fore.RESET}', end='  ')
-            else:
-                print('0', end='  ')
-        print()
-    print()
-
-
-def move_executor(vx, vy):
-    ...
 
 
 def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
@@ -256,12 +233,14 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
     label = {}
     register = {}
     register_line = {}
+    directions = {'RIGHT': (1, 0), "LEFT": (-1, 0), "UP": (0, 1), "DOWN": (0, -1)}
     for idx, line in enumerate(code_lines):
         label[idx] = len(bytecode_lines)
         match line[0]:
             case C.RIGHT | C.LEFT | C.UP | C.DOWN:
                 load_var_or_digit(bytecode_lines, register, line[1], var_id)
-                bytecode_lines.append([line[0]])
+                direction = directions[line[0]]
+                bytecode_lines.append([BC.DISPLACE, *direction])
             case C.IFBLOCK:
                 bytecode_lines.append([BC.LOAD, line[1]])
                 bytecode_lines.append([BC.LOAD_CONST, 0])
@@ -295,6 +274,44 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
     return bytecode_lines, label
 
 
+class Array(np.ndarray):
+    def __setitem__(self, key, value):
+        super().__setitem__((key[0], N - key[1] - 1), value)
+
+
+def show_field(field):
+    for y in range(N):
+        for x in range(N):
+            if field[x, y]:
+                print(f'{cl.Fore.GREEN}X{cl.Fore.RESET}', end='  ')
+            else:
+                print('0', end='  ')
+        print()
+    print()
+
+
+def move_executor(field, x, y, vx, vy, n):
+    for i in range(n):
+        field[x, y] = 0
+        x += vx
+        y += vy
+        field[x, y] = 1
+        show_field(field)
+        print(f'\x1b[{N + 2}A\r\033[K')
+        sleep(0.05)
+
+
+def check_borders(x, y, register) -> str:
+    if x >= N or x < 0 or y >= N or y < 0:
+        return 'Border'
+
+    register['RIGHT'] = int(x == N - 1)
+    register['LEFT'] = int(x == 0)
+    register['UP'] = int(y == N - 1)
+    register['DOWN'] = int(y == 0)
+    return ''
+
+
 def run_bytecode(bytecode_lines: List[List]):
     field = Array((N, N), dtype=np.bool_)
     field.fill(0)
@@ -307,60 +324,31 @@ def run_bytecode(bytecode_lines: List[List]):
     while idx < len(bytecode_lines):
         line = bytecode_lines[idx]
         cmd = line[0]
-        arg = line[1] if len(line) > 1 else None
+        args = line[1:] if len(line) > 1 else None
 
         match cmd:
-            case BC.RIGHT:
-                x += buffer[0]
-                register['LEFT'] = 0
-                if x == N - 1:
-                    register['RIGHT'] = 1
-                elif x >= N:
-                    return 'Border'
-            case BC.LEFT:
-                x -= buffer[0]
-                register['RIGHT'] = 0
-                if x == 0:
-                    register['LEFT'] = 1
-                elif x < 0:
-                    return 'Border'
-            case BC.UP:
-                y += buffer[0]
-                register['DOWN'] = 0
-                if y == N - 1:
-                    register['UP'] = 1
-                elif y >= N:
-                    return 'Border'
-            case BC.DOWN:
-                y -= buffer[0]
-                register['UP'] = 0
-                if y == 0:
-                    register['DOWN'] = 1
-                elif y < 0:
-                    return 'Border'
+            case BC.DISPLACE:
+                x += buffer[0] * args[0]
+                y += buffer[0] * args[1]
+                if border := check_borders(x, y, register):
+                    return border
+                move_executor(field, x - buffer[0] * args[0], y - buffer[0] * args[1], args[0], args[1], buffer[0])
             case BC.JMP:
-                idx = arg - 1
+                idx = args[0] - 1
             case BC.CMP:
                 if buffer[0] != buffer[1]:
                     idx += 1
             case BC.SUB:
-                register[arg] -= 1
+                register[args[0]] -= 1
             case BC.MOV:
-                register[arg] = buffer[0]
+                register[args[0]] = buffer[0]
             case BC.LOAD:
-                buffer.append(register[arg])
+                buffer.append(register[args[0]])
             case BC.LOAD_CONST:
-                buffer.append(arg)
+                buffer.append(args[0])
 
-        if cmd in [BC.RIGHT, BC.LEFT, BC.UP, BC.DOWN, BC.MOV, BC.CMP]:
+        if cmd in [BC.DISPLACE, BC.MOV, BC.CMP]:
             buffer.clear()
-
-        if cmd in [BC.RIGHT, BC.LEFT, BC.UP, BC.DOWN]:
-            field[x, y] = 1
-            show_field(field)
-            print(f'\x1b[{N + 2}A\r\033[K')
-            sleep(0.5)
-            # field[x, y] = 0
 
         idx += 1
         # print(idx, cmd, arg, register, buffer)
