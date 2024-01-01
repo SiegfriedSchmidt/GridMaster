@@ -83,6 +83,10 @@ def show_field(field):
     print()
 
 
+def move_executor(vx, vy):
+    ...
+
+
 def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
     if label:
         label = {y: x for x, y in label.items()}
@@ -360,7 +364,6 @@ def run_bytecode(bytecode_lines: List[List]):
 
         idx += 1
         # print(idx, cmd, arg, register, buffer)
-
 
 
 def main():
