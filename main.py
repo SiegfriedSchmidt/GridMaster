@@ -6,16 +6,33 @@ from time import sleep
 N = 21
 
 PROGRAM = '''
-PROCEDURE MoveLeftAndUp
-LEFT 2
-UP 2
-ENDPROC
-REPEAT 3
-IFBLOCK RIGHT
-CALL MoveLeftAndUp
-ENDIF
+ 
+UP 10
+PROCEDURE CIRCLE
+REPEAT 4
+UP 1
+RIGHT 1
 ENDREPEAT
 
+REPEAT 4
+RIGHT 1
+ENDREPEAT
+
+REPEAT 4
+RIGHT 1
+DOWN 1
+ENDREPEAT
+
+REPEAT 4
+DOWN 1
+ENDREPEAT
+
+LEFT 12
+ENDPROC
+
+REPEAT 10
+CALL CIRCLE
+ENDREPEAT
 '''
 
 
@@ -275,6 +292,7 @@ def run_bytecode(bytecode_lines: List[List]):
     field = Array((N, N), dtype=np.bool_)
     field.fill(0)
     x, y = 0, 0
+    field[x, y] = 1
 
     register = {'LEFT': 1, 'UP': 0, 'RIGHT': 0, 'DOWN': 1}
     buffer = []
@@ -284,34 +302,30 @@ def run_bytecode(bytecode_lines: List[List]):
         cmd = line[0]
         arg = line[1] if len(line) > 1 else None
 
-        field[x, y] = 1
-        show_field(field)
-        field[x, y] = 0
-
         match cmd:
             case BC.RIGHT:
-                x += arg
+                x += buffer[0]
                 register['LEFT'] = 0
                 if x == N - 1:
                     register['RIGHT'] = 1
                 elif x >= N:
                     return 'Border'
             case BC.LEFT:
-                x -= arg
+                x -= buffer[0]
                 register['RIGHT'] = 0
                 if x == 0:
                     register['LEFT'] = 1
                 elif x < 0:
                     return 'Border'
             case BC.UP:
-                y += arg
+                y += buffer[0]
                 register['DOWN'] = 0
                 if y == N - 1:
                     register['UP'] = 1
                 elif y >= N:
                     return 'Border'
             case BC.DOWN:
-                y -= arg
+                y -= buffer[0]
                 register['UP'] = 0
                 if y == 0:
                     register['DOWN'] = 1
@@ -322,19 +336,25 @@ def run_bytecode(bytecode_lines: List[List]):
             case BC.CMP:
                 if buffer[0] != buffer[1]:
                     idx += 1
-                buffer.clear()
             case BC.SUB:
                 register[arg] -= 1
             case BC.MOV:
                 register[arg] = buffer[0]
-                buffer.clear()
             case BC.LOAD:
                 buffer.append(register[arg])
             case BC.LOAD_CONST:
                 buffer.append(arg)
 
+        if cmd in [BC.RIGHT, BC.LEFT, BC.UP, BC.DOWN, BC.MOV, BC.CMP]:
+            buffer.clear()
+
+        if cmd in [BC.RIGHT, BC.LEFT, BC.UP, BC.DOWN]:
+            field[x, y] = 1
+            show_field(field)
+            sleep(0.5)
+            # field[x, y] = 0
+
         idx += 1
-        sleep(1)
         # print(idx, cmd, arg, register, buffer)
 
 
