@@ -1,6 +1,9 @@
 import numpy as np
 from typing import List, Dict, Tuple
 from pprint import pprint
+from time import sleep
+
+N = 21
 
 PROGRAM = '''
 PROCEDURE MoveLeftAndUp
@@ -14,8 +17,6 @@ ENDIF
 ENDREPEAT
 
 '''
-
-N = 21
 
 
 class C:
@@ -44,6 +45,22 @@ class BC:
     MOV = "MOV"
     LOAD = "LOAD"
     LOAD_CONST = "LOAD_CONST"
+
+
+class Array(np.ndarray):
+    def __setitem__(self, key, value):
+        super().__setitem__((key[0], N - key[1] - 1), value)
+
+
+def show_field(field):
+    for y in range(N):
+        for x in range(N):
+            if field[x, y]:
+                print('X', end='  ')
+            else:
+                print('0', end='  ')
+        print()
+    print()
 
 
 def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
@@ -208,7 +225,7 @@ def load_var_or_digit(bytecode_lines: List[List], register: Dict, var: str, var_
         bytecode_lines.append([BC.LOAD, register[var]])
 
 
-def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> List[List]:
+def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tuple[List[List], Dict[int, int]]:
     bytecode_lines: List[List] = []
 
     var_id = [0]
@@ -234,7 +251,7 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Li
                 bytecode_lines.append([BC.LOAD, reg])
                 bytecode_lines.append([BC.LOAD_CONST, 0])
                 bytecode_lines.append([BC.CMP])
-                bytecode_lines.append([BC.JMP, jumping[idx], 0])
+                bytecode_lines.append([BC.JMP, jumping[idx], 2])
             case C.ENDREPEAT:
                 bytecode_lines.append([BC.SUB, register_line[jumping[idx]]])
                 bytecode_lines.append([BC.JMP, jumping[idx], 2])
@@ -251,8 +268,75 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Li
         if line[0] == BC.JMP:
             bytecode_lines[idx] = [BC.JMP, label[line[1]] + int(line[2])]
 
-    print_code_lines(bytecode_lines, label=label)
-    return bytecode_lines
+    return bytecode_lines, label
+
+
+def run_bytecode(bytecode_lines: List[List]):
+    field = Array((N, N), dtype=np.bool_)
+    field.fill(0)
+    x, y = 0, 0
+
+    register = {'LEFT': 1, 'UP': 0, 'RIGHT': 0, 'DOWN': 1}
+    buffer = []
+    idx = 0
+    while idx < len(bytecode_lines):
+        line = bytecode_lines[idx]
+        cmd = line[0]
+        arg = line[1] if len(line) > 1 else None
+
+        field[x, y] = 1
+        show_field(field)
+        field[x, y] = 0
+
+        match cmd:
+            case BC.RIGHT:
+                x += arg
+                register['LEFT'] = 0
+                if x == N - 1:
+                    register['RIGHT'] = 1
+                elif x >= N:
+                    return 'Border'
+            case BC.LEFT:
+                x -= arg
+                register['RIGHT'] = 0
+                if x == 0:
+                    register['LEFT'] = 1
+                elif x < 0:
+                    return 'Border'
+            case BC.UP:
+                y += arg
+                register['DOWN'] = 0
+                if y == N - 1:
+                    register['UP'] = 1
+                elif y >= N:
+                    return 'Border'
+            case BC.DOWN:
+                y -= arg
+                register['UP'] = 0
+                if y == 0:
+                    register['DOWN'] = 1
+                elif y < 0:
+                    return 'Border'
+            case BC.JMP:
+                idx = arg - 1
+            case BC.CMP:
+                if buffer[0] != buffer[1]:
+                    idx += 1
+                buffer.clear()
+            case BC.SUB:
+                register[arg] -= 1
+            case BC.MOV:
+                register[arg] = buffer[0]
+                buffer.clear()
+            case BC.LOAD:
+                buffer.append(register[arg])
+            case BC.LOAD_CONST:
+                buffer.append(arg)
+
+        idx += 1
+        sleep(1)
+        # print(idx, cmd, arg, register, buffer)
+
 
 
 def main():
@@ -271,11 +355,13 @@ def main():
     if error := check_max_nesting_limit(code_lines, jumping):
         return print(f'Nesting error: {error}')
 
+    bytecode_lines, label = compile_into_bytecode(code_lines, jumping)
     print_code_lines(code_lines, jumping)
     print()
-    bytecode_lines: List[List] = compile_into_bytecode(code_lines, jumping)
+    print_code_lines(bytecode_lines, label=label)
 
-    field = np.zeros((N, N), dtype=np.int_)
+    if error := run_bytecode(bytecode_lines):
+        return print(f'Runtime error: {error}')
 
 
 if __name__ == '__main__':
