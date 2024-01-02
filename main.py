@@ -9,33 +9,69 @@ cl.init()
 N = 21
 
 PROGRAM = '''
- 
-UP 10
-PROCEDURE CIRCLE
-REPEAT 4
-UP 1
-RIGHT 1
-ENDREPEAT
 
-REPEAT 4
-RIGHT 1
-ENDREPEAT
+SET UP= 25
+SET RIGHT=25
+SET DOWN =   25
+SET LEFT =25
 
-REPEAT 4
-RIGHT 1
-DOWN 1
-ENDREPEAT
-
-REPEAT 4
-DOWN 1
-ENDREPEAT
-
-LEFT 12
+PROCEDURE TO_UP
+  IFBLOCK UP
+    DOWN 1
+  ENDIF
 ENDPROC
 
-REPEAT 10
-CALL CIRCLE
-ENDREPEAT
+PROCEDURE TO_RIGHT
+  IFBLOCK RIGHT
+    LEFT 1
+  ENDIF
+ENDPROC
+
+PROCEDURE TO_DOWN
+  IFBLOCK DOWN
+    UP 1
+  ENDIF
+ENDPROC
+
+PROCEDURE TO_LEFT
+  IFBLOCK LEFT
+    RIGHT 1
+  ENDIF
+ENDPROC
+
+  REPEAT UP
+    CALL TO_DOWN
+    UP 1
+  ENDREPEAT
+  
+  REPEAT RIGHT
+    CALL TO_RIGHT
+    RIGHT 1
+  ENDREPEAT
+
+  REPEAT DOWN
+    CALL TO_UP
+    DOWN 1
+  ENDREPEAT
+
+  REPEAT LEFT
+    CALL TO_LEFT
+    LEFT 1
+  ENDREPEAT
+'''
+
+PROGRAM1 = '''
+
+PROCEDURE func
+SET X = 1
+ENDPROC
+
+PROCEDURE func2
+CALL func
+SET X = 2
+ENDPROC
+
+CALL func2
 '''
 
 
@@ -60,8 +96,8 @@ class BC:
     CMP = "CMP"
     SUB = "SUB"
     MOV = "MOV"
-    LOAD = "LOAD"
-    LOAD_CONST = "LOAD_CONST"
+    STORE = "STORE"
+    STORE_CONST = "STORE_CONST"
 
 
 def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
@@ -69,11 +105,11 @@ def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
         label = {y: x for x, y in label.items()}
     for idx, line in enumerate(code_lines):
         if changes:
-            print(f'{idx:<2} {changes[idx]:<2} {line} ')
+            print(f'{idx:<2} {changes[idx]:<2} {" ".join([str(l) for l in line])} ')
         elif label:
-            print(f'{idx:<2} {label.get(idx, "-"):<2} {line} ')
+            print(f'{idx:<2} {label.get(idx, "-"):<2} {" ".join([str(l) for l in line])} ')
         else:
-            print(f'{idx:<2} {line}')
+            print(f'{idx:<2} {" ".join([str(l) for l in line])}')
 
 
 def initial_preparations(code: str) -> List[List[str]]:
@@ -131,16 +167,14 @@ def check_procedure_calls(code_lines: List[List[str]], jumping: List[int]) -> st
                 return f'Redeclaration procedure "{" ".join(line)}"'
             start = idx
         elif line[0] == C.CALL:
-            if start != -1:
+            if start != -1 and code_lines[start][1] == line[1]:
                 return f'Recursive call procedure "{" ".join(line)}"'
-            if val := procedures.get(line[1]):
-                jumping[val[1]] = int(idx)
-                jumping[idx] = int(val[0])
+            if (val := procedures.get(line[1], -1)) != -1:
+                jumping[idx] = val
             else:
                 return f'Call undefined procedure "{" ".join(line)}"'
         elif line[0] == C.ENDPROC:
-            procedures[code_lines[start][1]] = start, idx
-            jumping[start] = int(idx)
+            procedures[code_lines[start][1]] = start
             start = -1
 
     return ''
@@ -155,6 +189,7 @@ def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> str:
         C.PROCEDURE: 3,
         C.ENDPROC: -3
     }
+    alias_ = {y: x for x, y in alias.items()}
 
     stack = []
     for idx, line in enumerate(code_lines):
@@ -163,14 +198,13 @@ def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> str:
                 stack.append((val, idx))
             else:
                 if len(stack) > 0 and (start := stack.pop())[0] == -val:
-                    if code_lines[start[1]][0] != C.PROCEDURE:
-                        jumping[start[1]] = int(idx)
-                        jumping[idx] = int(start[1])
+                    jumping[start[1]] = int(idx)
+                    jumping[idx] = int(start[1])
                 else:
                     return ' '.join(line)
 
     if len(stack) != 0:
-        return "Construction not closed"
+        return f"Construction not closed {alias_[stack[0]]}"
 
     return ''
 
@@ -186,16 +220,18 @@ def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> 
     nesting = 0
     max_nesting = -1
     idx = 0
+    stack = []
     while idx < len(code_lines):
         cmd = code_lines[idx][0]
         nesting += nesting_vals.get(cmd, 0)
         match cmd:
             case C.CALL:
+                stack.append(idx)
                 idx = jumping[idx]
             case C.PROCEDURE:
                 idx = jumping[idx]
             case C.ENDPROC:
-                idx = jumping[idx]
+                idx = stack.pop()
                 nesting -= 1
 
         max_nesting = max(max_nesting, nesting)
@@ -207,25 +243,6 @@ def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> 
     return ''
 
 
-def get_new_reg(var_id):
-    new_reg = f'R{var_id[0]}'
-    var_id[0] += 1
-    return new_reg
-
-
-def add_to_register(register: Dict, var: str, var_id):
-    if not (var in register):
-        register[var] = get_new_reg(var_id)
-
-
-def load_var_or_digit(bytecode_lines: List[List], register: Dict, var: str, var_id):
-    if var.isdigit():
-        bytecode_lines.append([BC.LOAD_CONST, int(var)])
-    else:
-        add_to_register(register, var, var_id)
-        bytecode_lines.append([BC.LOAD, register[var]])
-
-
 def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tuple[List[List], Dict[int, int]]:
     bytecode_lines: List[List] = []
 
@@ -233,42 +250,68 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
     label = {}
     register = {}
     register_line = {}
+
+    def A(x: List):
+        bytecode_lines.append(x)
+
+    def new_reg():
+        r = f'R{var_id[0]}'
+        var_id[0] += 1
+        return r
+
+    def add_reg(var: str):
+        if not (var in register):
+            register[var] = new_reg()
+
+    def S(var: str | int):
+        if isinstance(var, int) or var.isdigit():
+            A([BC.STORE_CONST, int(var)])
+        else:
+            add_reg(var)
+            A([BC.STORE, register[var]])
+
+    def J(var: int, displace=0):
+        A([BC.JMP, var, displace])
+
     directions = {'RIGHT': (1, 0), "LEFT": (-1, 0), "UP": (0, 1), "DOWN": (0, -1)}
     for idx, line in enumerate(code_lines):
         label[idx] = len(bytecode_lines)
         match line[0]:
             case C.RIGHT | C.LEFT | C.UP | C.DOWN:
-                load_var_or_digit(bytecode_lines, register, line[1], var_id)
-                direction = directions[line[0]]
-                bytecode_lines.append([BC.DISPLACE, *direction])
+                S(line[1])
+                A([BC.DISPLACE, *directions[line[0]]])
             case C.IFBLOCK:
-                bytecode_lines.append([BC.LOAD, line[1]])
-                bytecode_lines.append([BC.LOAD_CONST, 0])
-                bytecode_lines.append([BC.CMP])
-                bytecode_lines.append([BC.JMP, jumping[idx], 0])
+                S(line[1])
+                S(0)
+                A([BC.CMP])
+                J(jumping[idx])
             case C.REPEAT:
-                load_var_or_digit(bytecode_lines, register, line[1], var_id)
-                reg = get_new_reg(var_id)
-                register_line[idx] = reg
-                bytecode_lines.append([BC.MOV, reg])
-                bytecode_lines.append([BC.LOAD, reg])
-                bytecode_lines.append([BC.LOAD_CONST, 0])
-                bytecode_lines.append([BC.CMP])
-                bytecode_lines.append([BC.JMP, jumping[idx], 2])
+                S(line[1])
+                register_line[idx] = (reg := new_reg())
+                A([BC.MOV, reg])
+                A([BC.STORE_CONST, reg])
+                S(0)
+                A([BC.CMP])
+                J(jumping[idx], 2)
             case C.ENDREPEAT:
-                bytecode_lines.append([BC.SUB, register_line[jumping[idx]]])
-                bytecode_lines.append([BC.JMP, jumping[idx], 2])
+                A([BC.SUB, register_line[jumping[idx]]])
+                J(jumping[idx], 2)
             case C.SET:
-                load_var_or_digit(bytecode_lines, register, line[4], var_id)
-                add_to_register(register, line[1], var_id)
-                bytecode_lines.append([BC.MOV, register[line[4]]])
-            case C.CALL | C.PROCEDURE | C.ENDPROC:
-                bytecode_lines.append([BC.JMP, jumping[idx], 1])
+                S(line[2])
+                add_reg(line[1])
+                A([BC.MOV, register[line[1]]])
+            case C.CALL:
+                S(len(bytecode_lines) + 2)
+                J(jumping[idx], 1)
+            case C.PROCEDURE:
+                J(jumping[idx], 1)
+            case C.ENDPROC:
+                A([BC.JMP])
             case _:
                 ...
 
     for idx, line in enumerate(bytecode_lines):
-        if line[0] == BC.JMP:
+        if line[0] == BC.JMP and len(line) > 1:
             bytecode_lines[idx] = [BC.JMP, label[line[1]] + int(line[2])]
 
     return bytecode_lines, label
@@ -296,8 +339,9 @@ def move_executor(field, x, y, vx, vy, n):
         x += vx
         y += vy
         field[x, y] = 1
+        print(f'\x1b[{N + 1}A\r\033[K', end='')
         show_field(field)
-        print(f'\x1b[{N + 2}A\r\033[K')
+
         sleep(0.05)
 
 
@@ -317,9 +361,11 @@ def run_bytecode(bytecode_lines: List[List]):
     field.fill(0)
     x, y = 0, 0
     field[x, y] = 1
+    print()
+    show_field(field)
 
     register = {'LEFT': 1, 'UP': 0, 'RIGHT': 0, 'DOWN': 1}
-    buffer = []
+    stack = []
     idx = 0
     while idx < len(bytecode_lines):
         line = bytecode_lines[idx]
@@ -328,30 +374,28 @@ def run_bytecode(bytecode_lines: List[List]):
 
         match cmd:
             case BC.DISPLACE:
-                x += buffer[0] * args[0]
-                y += buffer[0] * args[1]
+                n = stack.pop()
+                x += n * args[0]
+                y += n * args[1]
                 if border := check_borders(x, y, register):
                     return border
-                move_executor(field, x - buffer[0] * args[0], y - buffer[0] * args[1], args[0], args[1], buffer[0])
+                move_executor(field, x - n * args[0], y - n * args[1], args[0], args[1], n)
             case BC.JMP:
-                idx = args[0] - 1
+                idx = (args[0] if args else stack.pop()) - 1
             case BC.CMP:
-                if buffer[0] != buffer[1]:
+                if stack.pop() != stack.pop():
                     idx += 1
             case BC.SUB:
                 register[args[0]] -= 1
             case BC.MOV:
-                register[args[0]] = buffer[0]
-            case BC.LOAD:
-                buffer.append(register[args[0]])
-            case BC.LOAD_CONST:
-                buffer.append(args[0])
-
-        if cmd in [BC.DISPLACE, BC.MOV, BC.CMP]:
-            buffer.clear()
+                register[args[0]] = stack.pop()
+            case BC.STORE:
+                stack.append(register[args[0]])
+            case BC.STORE_CONST:
+                stack.append(args[0])
 
         idx += 1
-        # print(idx, cmd, arg, register, buffer)
+        # print(idx, cmd, args, register, stack)
 
 
 def main():
@@ -371,7 +415,8 @@ def main():
         return print(f'Nesting error: {error}')
 
     bytecode_lines, label = compile_into_bytecode(code_lines, jumping)
-    print_code_lines(code_lines, jumping)
+
+    print_code_lines(code_lines)
     print()
     print_code_lines(bytecode_lines, label=label)
 
