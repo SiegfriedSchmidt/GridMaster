@@ -10,37 +10,33 @@ N = 21
 
 PROGRAM = '''
 
-SET UP= 25
-SET RIGHT=25
-SET DOWN =   25
-SET LEFT =25
+SET UP= 50
+SET RIGHT=50
+SET DOWN =   50
+SET LEFT =50
 
 PROCEDURE TO_UP
-  IFBLOCK UP
-    DOWN 1
-  ENDIF
 ENDPROC
 
 PROCEDURE TO_RIGHT
-  IFBLOCK RIGHT
-    LEFT 1
-  ENDIF
+  CALL TO_UP
 ENDPROC
 
 PROCEDURE TO_DOWN
   IFBLOCK DOWN
-    UP 1
+    UP 19
   ENDIF
 ENDPROC
 
 PROCEDURE TO_LEFT
+  CALL TO_RIGHT
   IFBLOCK LEFT
-    RIGHT 1
+    RIGHT 19
   ENDIF
 ENDPROC
 
   REPEAT UP
-    CALL TO_DOWN
+    CALL TO_UP
     UP 1
   ENDREPEAT
   
@@ -50,7 +46,7 @@ ENDPROC
   ENDREPEAT
 
   REPEAT DOWN
-    CALL TO_UP
+    CALL TO_DOWN
     DOWN 1
   ENDREPEAT
 
@@ -240,6 +236,8 @@ def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> 
         C.REPEAT: 1,
         C.ENDREPEAT: -1,
         C.CALL: 1,
+        C.PROCEDURE: 1,
+        C.ENDPROC: -1
     }
     nesting = 0
     max_nesting = -1
@@ -252,11 +250,9 @@ def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> 
             case C.CALL:
                 stack.append(idx)
                 idx = jumping[idx]
-            case C.PROCEDURE:
-                idx = jumping[idx]
             case C.ENDPROC:
-                idx = stack.pop()
-                nesting -= 1
+                if len(stack) > 0:
+                    idx = stack.pop()
 
         max_nesting = max(max_nesting, nesting)
         idx += 1
@@ -305,7 +301,7 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
                 S(line[1])
                 A([BC.DISPLACE, *directions[line[0]]])
             case C.IFBLOCK:
-                S(line[1])
+                A([BC.STORE, line[1]])
                 S(0)
                 A([BC.CMP])
                 J(jumping[idx])
@@ -398,7 +394,7 @@ def run_bytecode(bytecode_lines: List[List]):
 
         if cmd in [BC.SUB, BC.STORE]:
             if not (args[0] in register):
-                print('Using undefined variable')
+                return 'Using undefined variable'
 
         match cmd:
             case BC.DISPLACE:
@@ -429,6 +425,7 @@ def run_bytecode(bytecode_lines: List[List]):
 def main():
     code_lines = initial_preparations(PROGRAM)
     jumping = [-1 for i in range(len(code_lines))]
+    print_code_lines(code_lines)
 
     if error := check_command_syntax(code_lines):
         return print(f'Syntax error: {error}')
@@ -444,7 +441,6 @@ def main():
 
     bytecode_lines, label = compile_into_bytecode(code_lines, jumping)
 
-    print_code_lines(code_lines)
     print()
     print_code_lines(bytecode_lines, label=label)
 
