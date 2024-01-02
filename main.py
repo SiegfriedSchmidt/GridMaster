@@ -60,18 +60,42 @@ ENDPROC
   ENDREPEAT
 '''
 
-PROGRAM1 = '''
+PROGRAM2 = '''
 
-PROCEDURE func
-SET X = 1
+UP 10
+PROCEDURE CIRCLE
+REPEAT 4
+UP 1
+RIGHT 1
+ENDREPEAT
+
+REPEAT 4
+RIGHT 1
+ENDREPEAT
+
+REPEAT 4
+RIGHT 1
+DOWN 1
+ENDREPEAT
+
+REPEAT 4
+DOWN 1
+ENDREPEAT
+
+LEFT 12
 ENDPROC
 
-PROCEDURE func2
-CALL func
-SET X = 2
-ENDPROC
+REPEAT 10
+CALL CIRCLE
+ENDREPEAT
+'''
 
-CALL func2
+PROGRAM2 = '''
+SET X = 4
+REPEAT X
+RIGHT X
+ENDREPEAT
+SET X = 5
 '''
 
 
@@ -289,7 +313,7 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
                 S(line[1])
                 register_line[idx] = (reg := new_reg())
                 A([BC.MOV, reg])
-                A([BC.STORE_CONST, reg])
+                A([BC.STORE, reg])
                 S(0)
                 A([BC.CMP])
                 J(jumping[idx], 2)
@@ -342,7 +366,7 @@ def move_executor(field, x, y, vx, vy, n):
         print(f'\x1b[{N + 1}A\r\033[K', end='')
         show_field(field)
 
-        sleep(0.05)
+        sleep(0.1)
 
 
 def check_borders(x, y, register) -> str:
@@ -371,6 +395,10 @@ def run_bytecode(bytecode_lines: List[List]):
         line = bytecode_lines[idx]
         cmd = line[0]
         args = line[1:] if len(line) > 1 else None
+
+        if cmd in [BC.SUB, BC.STORE]:
+            if not (args[0] in register):
+                print('Using undefined variable')
 
         match cmd:
             case BC.DISPLACE:
