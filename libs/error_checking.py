@@ -1,12 +1,15 @@
 from typing import List, Tuple
 from libs.all_commands import C
+import string
+
+alphabet = list(string.ascii_letters)
 
 
 def check_var(var: str, string_required=False) -> bool:
     if not string_required and var.isdigit():
         return 1 <= int(var) <= 1000
     else:
-        return not var[0].isdigit()
+        return var[0] in alphabet
 
 
 def check_command_syntax(code_lines: List[List[str]]) -> str:
@@ -143,3 +146,5 @@ def check_all_errors(code_lines: List[List[str]]) -> Tuple[str, List[int]]:
 
     if error := check_max_nesting_limit(code_lines, jumping):
         return f'Nesting error: {error}', jumping
+
+    return '', jumping

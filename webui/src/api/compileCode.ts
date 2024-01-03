@@ -1,7 +1,7 @@
 import {baseRequest} from "./baseRequest";
 import {serverResponses} from "../types/ServerResponseEnum";
 
-export const loginApi = async (code: string): Promise<{ success: boolean, message: string }> => {
+export const compileCode = async (code: string): Promise<{ success: boolean, message: string[][] }> => {
     const result = await baseRequest("/compile", {code})
     if (result.status === serverResponses.success) {
         return {success: true, message: result.response.bytecode}

@@ -31,7 +31,7 @@ def run_bytecode(bytecode_lines: List[List], N):
         cmd = line[0]
         args = line[1:] if len(line) > 1 else None
 
-        if cmd in [BC.SUB, BC.STORE]:
+        if cmd in [BC.SUB, BC.STORE, BC.MOV]:
             if not (args[0] in register):
                 return 'Using undefined variable'
 

@@ -5,7 +5,7 @@ from libs.utils import check_errors_and_compile
 routes = web.RouteTableDef()
 
 
-@routes.get('/api/compile')
+@routes.post('/api/compile')
 async def bytecode_compile(request: web.Request):
     content = await request.json()
     code = content.get('code', '')
@@ -24,4 +24,4 @@ async def bytecode_compile(request: web.Request):
 def start_server():
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app, port=8080)
+    web.run_app(app, port=8081)
