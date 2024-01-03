@@ -12,7 +12,7 @@ def check_var(var: str, string_required=False) -> bool:
         return var[0] in alphabet
 
 
-def check_command_syntax(code_lines: List[List[str]]) -> str:
+def check_command_syntax(code_lines: List[List[str]]) -> Tuple[str, int]:
     for idx, line in enumerate(code_lines):
         match line[0]:
             case C.RIGHT | C.LEFT | C.UP | C.DOWN | C.REPEAT:
@@ -40,36 +40,36 @@ def check_command_syntax(code_lines: List[List[str]]) -> str:
             case _:
                 ...
 
-        return ' '.join(line)
-    return ''
+        return 'Syntax error', idx
+    return '', -1
 
 
-def check_procedure_calls(code_lines: List[List[str]], jumping: List[int]) -> str:
+def check_procedure_calls(code_lines: List[List[str]], jumping: List[int]) -> Tuple[str, int]:
     procedures = {}
 
     start = -1
     for idx, line in enumerate(code_lines):
         if line[0] == C.PROCEDURE:
             if start != -1:
-                return f'Recursive declaration procedure "{" ".join(line)}"'
+                return 'Recursive declaration procedure', idx
             if line[1] in procedures:
-                return f'Redeclaration procedure "{" ".join(line)}"'
+                return 'Redeclaration procedure', idx
             start = idx
         elif line[0] == C.CALL:
             if start != -1 and code_lines[start][1] == line[1]:
-                return f'Recursive call procedure "{" ".join(line)}"'
+                return 'Max nesting level exceeded', idx
             if (val := procedures.get(line[1], -1)) != -1:
                 jumping[idx] = val
             else:
-                return f'Call undefined procedure "{" ".join(line)}"'
+                return 'Call undefined procedure', idx
         elif line[0] == C.ENDPROC:
             procedures[code_lines[start][1]] = start
             start = -1
 
-    return ''
+    return '', -1
 
 
-def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> str:
+def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> Tuple[str, int]:
     alias = {
         C.IFBLOCK: 1,
         C.ENDIF: -1,
@@ -78,7 +78,6 @@ def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> str:
         C.PROCEDURE: 3,
         C.ENDPROC: -3
     }
-    alias_ = {y: x for x, y in alias.items()}
 
     stack = []
     for idx, line in enumerate(code_lines):
@@ -90,15 +89,15 @@ def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> str:
                     jumping[start[1]] = int(idx)
                     jumping[idx] = int(start[1])
                 else:
-                    return ' '.join(line)
+                    return ' '.join(line), idx
 
     if len(stack) != 0:
-        return f"Construction not closed {alias_[stack[0]]}"
+        return "Construction not closed", stack[0][1]
 
-    return ''
+    return '', -1
 
 
-def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> str:
+def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> Tuple[str, int]:
     nesting_vals = {
         C.IFBLOCK: 1,
         C.ENDIF: -1,
@@ -124,27 +123,37 @@ def check_max_nesting_limit(code_lines: List[List[str]], jumping: List[int]) -> 
                     idx = stack.pop()
 
         max_nesting = max(max_nesting, nesting)
+        if max_nesting > 3:
+            return 'Max nesting level exceeded', idx
+
         idx += 1
 
-    if max_nesting > 3:
-        return f'Max nesting level exceeded'
-
-    return ''
+    return '', -1
 
 
-def check_all_errors(code_lines: List[List[str]]) -> Tuple[str, List[int]]:
+def check_errors(code_lines: List[List[str]]) -> Tuple[Tuple[str, int], List[int]]:
     jumping = [-1 for i in range(len(code_lines))]
 
-    if error := check_command_syntax(code_lines):
-        return f'Syntax error: {error}', jumping
+    if (error := check_command_syntax(code_lines))[0]:
+        return error, jumping
 
-    if error := check_procedure_calls(code_lines, jumping):
-        return f'Procedure declaration error: {error}', jumping
+    if (error := check_procedure_calls(code_lines, jumping))[0]:
+        return error, jumping
 
-    if error := check_code_blocks(code_lines, jumping):
-        return f'Nesting error: {error}', jumping
+    if (error := check_code_blocks(code_lines, jumping))[0]:
+        return error, jumping
 
-    if error := check_max_nesting_limit(code_lines, jumping):
-        return f'Nesting error: {error}', jumping
+    if (error := check_max_nesting_limit(code_lines, jumping))[0]:
+        return error, jumping
+
+    return error, jumping
+
+
+def check_all_errors(source, code_to_source: List[int], code_lines: List[List[str]]) -> Tuple[str, List[int]]:
+    error, jumping = check_errors(code_lines)
+
+    if (error := check_command_syntax(code_lines))[0]:
+        source_idx = code_to_source[error[1]]
+        return f'{error[0]} in line {source_idx + 1}: "{source[source_idx]}"', jumping
 
     return '', jumping

@@ -1,8 +1,6 @@
-from libs.utils import initial_preparations, print_code_lines, check_errors_and_compile
-from libs.error_checking import check_all_errors
 from libs.run_bytecode import run_bytecode
-from libs.compile_bytecode import compile_into_bytecode
-from libs.server import start_server
+from libs.utils import check_errors_and_compile, print_code_lines
+from libs.server import server
 
 N = 21
 
@@ -72,6 +70,11 @@ PROGRAM = '''
 SET X = Z
 SET Y = X
 SET Z = Y
+
+IFBLOCK LEFT
+
+ENDIF
+
 UP Z
 PROCEDURE CIRCLE
   UP 9
@@ -103,16 +106,13 @@ ENDREPEAT
 
 
 def main():
-    start_server()
+    server()
     N = 21
 
-    error, code_lines, bytecode_lines = check_errors_and_compile(PROGRAM)
+    error, source, bytecode_to_source, bytecode_lines = check_errors_and_compile(PROGRAM)
+    print_code_lines(bytecode_lines, bytecode_to_source=bytecode_to_source)
     if error:
         return print(error)
-
-    print_code_lines(code_lines)
-    print()
-    print_code_lines(bytecode_lines)
 
     if error := run_bytecode(bytecode_lines, N):
         return print(f'Runtime error: {error}')

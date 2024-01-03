@@ -13,15 +13,17 @@ async def bytecode_compile(request: web.Request):
     if not code:
         return web.json_response({'message': 'notext'}, status=250)
 
-    error, code_lines, bytecode_lines = check_errors_and_compile(code)
+    error, source, bytecode_to_source, bytecode_lines = check_errors_and_compile(code)
 
     if error:
         return web.json_response({'message': error}, status=250)
 
-    return web.json_response({'bytecode': bytecode_lines})
+    return web.json_response(
+        {'source': source, 'bytecodeToSource': bytecode_to_source, 'bytecodeLines': bytecode_lines}
+    )
 
 
-def start_server():
+def server():
     app = web.Application()
     app.add_routes(routes)
     web.run_app(app, port=8081)

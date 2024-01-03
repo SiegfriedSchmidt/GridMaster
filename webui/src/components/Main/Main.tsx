@@ -3,6 +3,7 @@ import classes from "./Main.module.css";
 import Executor from "../Executor/Executor";
 import {compileCode} from "../../api/compileCode";
 import CodeMirror from '@uiw/react-codemirror';
+import Slider from "../Slider/Slider";
 
 function setStartStyles(buttonRef: React.RefObject<HTMLButtonElement>) {
     if (buttonRef.current) {
@@ -22,6 +23,7 @@ const Main = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const executorRef = useRef<Executor>()
     const buttonRef = useRef<HTMLButtonElement>(null)
+    const [delay, setDelay] = useState<number>(100)
     const [code, setCode] = useState<string>('')
 
     useEffect(() => {
@@ -31,6 +33,10 @@ const Main = () => {
         executor.init()
         executorRef.current = executor
     }, [canvasRef])
+
+    useEffect(() => {
+        executorRef.current?.set_delay(delay)
+    }, [delay])
 
     async function onClick(event: React.MouseEvent<HTMLButtonElement>) {
         if (executorRef.current?.running) {
@@ -43,9 +49,9 @@ const Main = () => {
             }
             setStopStyles(buttonRef)
 
-            const error = await executorRef.current?.run(message, false)
+            const error = await executorRef.current?.run(message, true)
             if (error) {
-                alert(`Runtime error: ${error}`)
+                setTimeout(() => alert(error), 100)
             }
             setStartStyles(buttonRef)
         }
@@ -53,6 +59,12 @@ const Main = () => {
 
     return (
         <div className={classes.container}>
+            <div className={classes.settings}>
+                <input className={classes.checkbox} type="checkbox"
+                       onChange={e => executorRef.current?.drawing_mode(e.target.checked)}/>
+                <Slider setValue={setDelay}/>
+            </div>
+
             <div className={classes.textExecContainer}>
                 <CodeMirror
                     onChange={value => setCode(value)}
@@ -66,7 +78,9 @@ const Main = () => {
                 {/*          onChange={e => setCode(e.target.value)}></textarea>*/}
                 <canvas className={classes.field} ref={canvasRef}></canvas>
             </div>
-            <button style={{}} className={classes.button} ref={buttonRef} onClick={onClick}>Run</button>
+            <div className={classes.buttonsContainer}>
+                <button style={{}} className={classes.button} ref={buttonRef} onClick={onClick}>Run</button>
+            </div>
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import Draw from "../Draw/Draw";
-import {log} from "util";
+import compiledType from "../../types/compiledType";
 
 // const initField = (sx: number, sy: number, value: any) => new Array(sx).fill(value).map(() => new Array(sy).fill(value));
 
@@ -23,6 +23,8 @@ export default class Executor {
     public readonly sz: number
     public readonly p: number
     public running = false
+    public drawing = false
+    public delay = 100
     private readonly draw: Draw
 
     constructor(
@@ -82,37 +84,52 @@ export default class Executor {
         this.draw.Rect(x * this.sz + this.p + 2, (this.N - y - 1) * this.sz + this.p + 2, this.sz - 4, c)
     }
 
+    drawing_mode(mode: boolean) {
+        this.drawing = mode
+    }
+
+    set_delay(delay: number) {
+        this.delay = delay
+    }
+
     async move_executor(x: number, y: number, vx: number, vy: number, n: number): Promise<string> {
         for (let i = 0; i < n; i++) {
+            await sleep(this.delay)
             if (!this.running) {
                 return 'Stopped'
             }
-            await sleep(100)
+
             if (this.check_border(x + vx, y + vy)) {
                 return "Border"
             }
 
-            this.draw_executor(x, y, 'white')
+            if (!this.drawing) {
+                this.draw_executor(x, y, 'white')
+            }
+
             x += vx
             y += vy
             this.draw_executor(x, y, 'black')
-
         }
         return ''
     }
 
-    async run(bytecode: string[][], logs: boolean): Promise<string> {
+    async run(bytecode: compiledType, logs: boolean): Promise<string> {
         this.running = true
-        const result = await this.run_bytecode(bytecode, logs)
+        const {error, line} = await this.run_bytecode(bytecode.bytecodeLines, logs)
         this.running = false
-        return result
+        if (error) {
+            const sourceLine = bytecode.bytecodeToSource[line]
+            return `Runtime error "${error}" in line ${sourceLine + 1}: "${bytecode.source[sourceLine]}"`
+        }
+        return ''
     }
 
     async stop() {
         this.running = false
     }
 
-    async run_bytecode(bytecode: string[][], logs: boolean): Promise<string> {
+    async run_bytecode(bytecode: string[][], logs: boolean): Promise<{ error: string, line: number }> {
         if (logs) console.clear()
         this.drawGrid()
         let x = 0
@@ -126,14 +143,11 @@ export default class Executor {
             const cmd = bytecode[idx][0]
             const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1) : []
 
-            if (logs) {
-                console.info(cmd, args, stack)
-                console.info(register)
-            }
+            console.info(cmd, args, stack)
 
             if ([BC.SUB, BC.STORE].includes(cmd as BC)) {
                 if (!(args[0] in register)) {
-                    return 'Using undefined variable'
+                    return {error: 'Using undefined variable', line: idx}
                 }
             }
 
@@ -142,9 +156,9 @@ export default class Executor {
                     const n = stack.pop() as number
                     const result = await this.move_executor(x, y, Number(args[0]), Number(args[1]), n)
                     if (result === 'Border') {
-                        return 'Border'
+                        return {error: 'Border', line: idx}
                     } else if (result === "Stopped") {
-                        return ''
+                        return {error: '', line: -1}
                     }
                     x += n * Number(args[0])
                     y += n * Number(args[1])
@@ -175,6 +189,6 @@ export default class Executor {
             ++idx
         }
 
-        return ''
+        return {error: '', line: -1}
     }
 }
