@@ -104,7 +104,7 @@ export default class Executor {
 
         while (idx < bytecode.length) {
             const cmd = bytecode[idx][0]
-            const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1).map(e => Number(e)) : []
+            const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1) : []
 
             console.info(cmd, args, stack)
             console.info(register)
@@ -118,15 +118,15 @@ export default class Executor {
             switch (cmd) {
                 case BC.DISPLACE:
                     const n = stack.pop() as number
-                    if (await this.move_executor(x, y, args[0], args[1], n, register)) {
+                    if (await this.move_executor(x, y, Number(args[0]), Number(args[1]), n, register)) {
                         return 'Border'
                     }
-                    x += n * args[0]
-                    y += n * args[1]
+                    x += n * Number(args[0])
+                    y += n * Number(args[1])
                     this.border_registers(x, y, register)
                     break
                 case BC.JMP:
-                    idx = (args.length > 0 ? args[0] : stack.pop() as number) - 1
+                    idx = (args.length > 0 ? Number(args[0]) : stack.pop() as number) - 1
                     break
                 case BC.CMP:
                     if (stack.pop() !== stack.pop()) {
@@ -143,7 +143,7 @@ export default class Executor {
                     stack.push(register[args[0]])
                     break
                 case BC.STORE_CONST:
-                    stack.push(args[0])
+                    stack.push(Number(args[0]))
                     break
             }
 

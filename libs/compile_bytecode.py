@@ -14,7 +14,7 @@ def compile_into_bytecode(code_lines: List[List[str]], jumping: List[int]) -> Tu
         bytecode_lines.append(x)
 
     def new_reg():
-        r = f'{var_id[0]}'
+        r = f'R{var_id[0]}'
         var_id[0] += 1
         return r
 
