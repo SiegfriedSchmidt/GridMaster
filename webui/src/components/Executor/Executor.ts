@@ -62,28 +62,38 @@ export default class Executor {
         if (x >= this.N || x < 0 || y >= this.N || y < 0) {
             return "Border"
         }
+        return ''
+    }
+
+    border_registers(x: number, y: number, register: { [key: string]: number }) {
         register['RIGHT'] = Number(x === this.N - 1)
         register['LEFT'] = Number(x === 0)
         register['UP'] = Number(y === this.N - 1)
         register['DOWN'] = Number(y === 0)
-        return ''
     }
 
     draw_executor(x: number, y: number, c: string) {
         this.draw.Rect(x * this.sz + this.p + 2, (this.N - y - 1) * this.sz + this.p + 2, this.sz - 4, c)
     }
 
-    async move_executor(x: number, y: number, vx: number, vy: number, n: number) {
+    async move_executor(x: number, y: number, vx: number, vy: number, n: number, register: { [key: string]: number }) {
         for (let i = 0; i < n; i++) {
             this.draw_executor(x, y, 'white')
             x += vx
             y += vy
+
+            if (this.check_border(x, y, register)) {
+                return true
+            }
+
             this.draw_executor(x, y, 'black')
             await sleep(100)
         }
+        return false
     }
 
     async run_bytecode(bytecode: string[][]): Promise<string> {
+        console.clear()
         this.drawGrid()
         let x = 0
         let y = 0
@@ -96,8 +106,10 @@ export default class Executor {
             const cmd = bytecode[idx][0]
             const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1).map(e => Number(e)) : []
 
+            console.info(cmd, args, stack)
+            console.info(register)
+
             if ([BC.SUB, BC.STORE].includes(cmd as BC)) {
-                console.log(cmd, args, register)
                 if (!(args[0] in register)) {
                     return 'Using undefined variable'
                 }
@@ -106,13 +118,12 @@ export default class Executor {
             switch (cmd) {
                 case BC.DISPLACE:
                     const n = stack.pop() as number
+                    if (await this.move_executor(x, y, args[0], args[1], n, register)) {
+                        return 'Border'
+                    }
                     x += n * args[0]
                     y += n * args[1]
-                    const border = this.check_border(x, y, register)
-                    if (border) {
-                        return border
-                    }
-                    await this.move_executor(x - n * args[0], y - n * args[1], args[0], args[1], n)
+                    this.border_registers(x, y, register)
                     break
                 case BC.JMP:
                     idx = (args.length > 0 ? args[0] : stack.pop() as number) - 1
