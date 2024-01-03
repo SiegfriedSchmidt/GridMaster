@@ -97,7 +97,6 @@ export default class Executor {
             const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1).map(e => Number(e)) : []
 
             if ([BC.SUB, BC.STORE, BC.MOV].includes(cmd as BC)) {
-                console.log(args[0], register)
                 if (!(args[0] in register)) {
                     return 'Using undefined variable'
                 }
