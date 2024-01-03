@@ -98,7 +98,7 @@ const Main = () => {
                 <Slider setValue={setDelay}/>
                 <input id='import' type="file" onChange={importFile} style={{display: "none"}}/>
                 <label className={classes.file} htmlFor="import">Import</label>
-                <button className={classes.button} onClick={exportFile}>Export</button>
+                <div className={classes.file} onClick={exportFile}>Export</div>
             </div>
 
             <div className={classes.textExecContainer}>
