@@ -16,7 +16,7 @@ def print_code_lines(code_lines: List[List[str]], changes=None, label=None):
 
 
 def initial_preparations(code: str) -> List[List[str]]:
-    return list(filter(lambda l: len(l) > 0, map(lambda s: s.strip().split(), code.strip().splitlines())))
+    return list(filter(lambda l: len(l) > 0, map(lambda s: s.strip().split(), code.upper().strip().splitlines())))
 
 
 def check_errors_and_compile(code: str) -> Tuple[str, List[List[str]], List[List[str]]]:
