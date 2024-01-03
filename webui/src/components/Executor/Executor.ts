@@ -1,4 +1,5 @@
 import Draw from "../Draw/Draw";
+import {log} from "util";
 
 // const initField = (sx: number, sy: number, value: any) => new Array(sx).fill(value).map(() => new Array(sy).fill(value));
 
@@ -18,10 +19,10 @@ enum BC {
 
 export default class Executor {
     public readonly N = 21
-
     public readonly size: number
     public readonly sz: number
     public readonly p: number
+    public running = false
     private readonly draw: Draw
 
     constructor(
@@ -34,6 +35,11 @@ export default class Executor {
         this.draw = new Draw(ctx)
         this.ctx.canvas.height = this.size
         this.ctx.canvas.width = this.size
+    }
+
+    init() {
+        this.drawGrid()
+        this.drawGrid()
     }
 
     drawGrid() {
@@ -58,7 +64,7 @@ export default class Executor {
         this.draw_executor(0, 0, 'black')
     }
 
-    check_border(x: number, y: number, register: { [key: string]: number }): string {
+    check_border(x: number, y: number): string {
         if (x >= this.N || x < 0 || y >= this.N || y < 0) {
             return "Border"
         }
@@ -76,24 +82,38 @@ export default class Executor {
         this.draw.Rect(x * this.sz + this.p + 2, (this.N - y - 1) * this.sz + this.p + 2, this.sz - 4, c)
     }
 
-    async move_executor(x: number, y: number, vx: number, vy: number, n: number, register: { [key: string]: number }) {
+    async move_executor(x: number, y: number, vx: number, vy: number, n: number): Promise<string> {
         for (let i = 0; i < n; i++) {
+            if (!this.running) {
+                return 'Stopped'
+            }
+            await sleep(100)
+            if (this.check_border(x + vx, y + vy)) {
+                return "Border"
+            }
+
             this.draw_executor(x, y, 'white')
             x += vx
             y += vy
-
-            if (this.check_border(x, y, register)) {
-                return true
-            }
-
             this.draw_executor(x, y, 'black')
-            await sleep(100)
+
         }
-        return false
+        return ''
     }
 
-    async run_bytecode(bytecode: string[][]): Promise<string> {
-        console.clear()
+    async run(bytecode: string[][], logs: boolean): Promise<string> {
+        this.running = true
+        const result = await this.run_bytecode(bytecode, logs)
+        this.running = false
+        return result
+    }
+
+    async stop() {
+        this.running = false
+    }
+
+    async run_bytecode(bytecode: string[][], logs: boolean): Promise<string> {
+        if (logs) console.clear()
         this.drawGrid()
         let x = 0
         let y = 0
@@ -106,8 +126,10 @@ export default class Executor {
             const cmd = bytecode[idx][0]
             const args = bytecode[idx].length > 1 ? bytecode[idx].slice(1) : []
 
-            console.info(cmd, args, stack)
-            console.info(register)
+            if (logs) {
+                console.info(cmd, args, stack)
+                console.info(register)
+            }
 
             if ([BC.SUB, BC.STORE].includes(cmd as BC)) {
                 if (!(args[0] in register)) {
@@ -118,8 +140,11 @@ export default class Executor {
             switch (cmd) {
                 case BC.DISPLACE:
                     const n = stack.pop() as number
-                    if (await this.move_executor(x, y, Number(args[0]), Number(args[1]), n, register)) {
+                    const result = await this.move_executor(x, y, Number(args[0]), Number(args[1]), n)
+                    if (result === 'Border') {
                         return 'Border'
+                    } else if (result === "Stopped") {
+                        return ''
                     }
                     x += n * Number(args[0])
                     y += n * Number(args[1])
