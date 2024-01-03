@@ -45,9 +45,9 @@ const Main = () => {
 
             const error = await executorRef.current?.run(message, false)
             if (error) {
-                setStartStyles(buttonRef)
                 alert(`Runtime error: ${error}`)
             }
+            setStartStyles(buttonRef)
         }
     }
 
