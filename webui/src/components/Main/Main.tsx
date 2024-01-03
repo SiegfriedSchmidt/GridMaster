@@ -4,6 +4,20 @@ import Executor from "../Executor/Executor";
 import {compileCode} from "../../api/compileCode";
 import CodeMirror from '@uiw/react-codemirror';
 
+function setStartStyles(buttonRef: React.RefObject<HTMLButtonElement>) {
+    if (buttonRef.current) {
+        buttonRef.current.style.backgroundColor = 'greenyellow'
+        buttonRef.current.innerText = 'Run'
+    }
+}
+
+function setStopStyles(buttonRef: React.RefObject<HTMLButtonElement>) {
+    if (buttonRef.current) {
+        buttonRef.current.style.backgroundColor = 'orangered'
+        buttonRef.current.innerText = 'Stop'
+    }
+}
+
 const Main = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const executorRef = useRef<Executor>()
@@ -21,23 +35,17 @@ const Main = () => {
     async function onClick(event: React.MouseEvent<HTMLButtonElement>) {
         if (executorRef.current?.running) {
             executorRef.current?.stop()
-            if (buttonRef.current) {
-                buttonRef.current.style.backgroundColor = 'greenyellow'
-                buttonRef.current.innerText = 'Run'
-            }
+            setStartStyles(buttonRef)
         } else {
             const {success, message} = await compileCode(code)
             if (!success) {
                 return alert(message)
             }
-
-            if (buttonRef.current) {
-                buttonRef.current.style.backgroundColor = 'orangered'
-                buttonRef.current.innerText = 'Stop'
-            }
+            setStopStyles(buttonRef)
 
             const error = await executorRef.current?.run(message, false)
             if (error) {
+                setStartStyles(buttonRef)
                 alert(`Runtime error: ${error}`)
             }
         }
