@@ -74,12 +74,11 @@ const Main = () => {
                     height="40vh"
                     theme="light"
                 />
-                {/*<textarea className={classes.code} rows={20} cols={50}*/}
-                {/*          onChange={e => setCode(e.target.value)}></textarea>*/}
                 <canvas className={classes.field} ref={canvasRef}></canvas>
             </div>
             <div className={classes.buttonsContainer}>
                 <button style={{}} className={classes.button} ref={buttonRef} onClick={onClick}>Run</button>
+                <input type="file" onChange={e => 1}/>
             </div>
         </div>
     );

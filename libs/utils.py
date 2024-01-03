@@ -8,6 +8,9 @@ def reverse_dict(d):
 
 
 def print_code_lines(code_lines: List[List[str]], changes=None, bytecode_to_source=None):
+    if not code_lines:
+        return
+
     for idx, line in enumerate(code_lines):
         if changes:
             print(f'{idx:<2} {changes[idx]:<2} {" ".join([str(l) for l in line])} ')
@@ -43,6 +46,7 @@ def compare_bytecode_to_source(bytecode_lines, label, code_to_source) -> List[in
 def check_errors_and_compile(code: str) -> tuple[str, None, None, None] | tuple[str, List[str], List[int], List[List]]:
     source, code_to_source, code_lines = initial_preparations(code)
     error, jumping = check_all_errors(source, code_to_source, code_lines)
+
     if error:
         return error, None, None, None
 

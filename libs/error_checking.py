@@ -89,7 +89,7 @@ def check_code_blocks(code_lines: List[List[str]], jumping: List[int]) -> Tuple[
                     jumping[start[1]] = int(idx)
                     jumping[idx] = int(start[1])
                 else:
-                    return ' '.join(line), idx
+                    return "Construction closed before open", idx
 
     if len(stack) != 0:
         return "Construction not closed", stack[0][1]
@@ -152,7 +152,7 @@ def check_errors(code_lines: List[List[str]]) -> Tuple[Tuple[str, int], List[int
 def check_all_errors(source, code_to_source: List[int], code_lines: List[List[str]]) -> Tuple[str, List[int]]:
     error, jumping = check_errors(code_lines)
 
-    if (error := check_command_syntax(code_lines))[0]:
+    if error[0]:
         source_idx = code_to_source[error[1]]
         return f'{error[0]} in line {source_idx + 1}: "{source[source_idx]}"', jumping
 

@@ -104,6 +104,19 @@ REPEAT 9
 ENDREPEAT
 '''
 
+PROGRAM = '''
+right 20
+up 10
+repeat 5
+ repeat 2
+   repeat 2
+   endrepeat
+     left 1
+   endrepeat
+ endrepeat
+endrepeat
+'''
+
 
 def main():
     server()
