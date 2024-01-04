@@ -26,4 +26,4 @@ async def bytecode_compile(request: web.Request):
 def server():
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app, port=8081)
+    web.run_app(app, host='localhost', port=8081)
