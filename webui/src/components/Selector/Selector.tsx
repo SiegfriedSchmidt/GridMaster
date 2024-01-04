@@ -31,9 +31,11 @@ const Selector: FC<SelectorInterface> = ({setSelected, selecting}) => {
 
 
     function onSelect(e: React.SyntheticEvent<HTMLSelectElement, Event>) {
-        setSelected(e.currentTarget.options[e.currentTarget.selectedIndex].text)
         if (selectRef.current) {
-            selectRef.current.selectedIndex = -1
+            if (selectRef.current.selectedIndex !== -1) {
+                setSelected(e.currentTarget.options[e.currentTarget.selectedIndex].value)
+                selectRef.current.selectedIndex = -1
+            }
         }
     }
 
