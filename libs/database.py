@@ -1,11 +1,9 @@
 import sqlite3 as sql
 
-path_to_database = '../gridmaster.db'
-
 
 class Database:
-    def __init__(self, clear=False):
-        self.con = sql.connect(path_to_database)
+    def __init__(self, path: str, clear=False):
+        self.con = sql.connect(path)
         self.cur = self.con.cursor()
         self.init(clear)
 
@@ -45,5 +43,5 @@ class Database:
 
 
 if __name__ == '__main__':
-    db = Database()
-
+    db = Database('../gridmaster.db')
+    print(db.get_all())
