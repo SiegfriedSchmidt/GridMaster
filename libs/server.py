@@ -1,8 +1,12 @@
 from aiohttp import web
 from libs.database import Database
 from libs.utils import check_errors_and_compile
+from pathlib import Path
 
-db = Database('gridmaster.db')
+static_dir_path = Path('./webui/build')
+database_path = Path('./gridmaster.db')
+
+db = Database(database_path)
 routes = web.RouteTableDef()
 
 
@@ -52,7 +56,13 @@ async def save(request: web.Request):
     return web.json_response({'index': res})
 
 
+@routes.get('/')
+async def index(request: web.Request):
+    return web.FileResponse(static_dir_path / 'index.html')
+
+
 def server():
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app, host='localhost', port=8081)
+    app.add_routes([web.static('/', static_dir_path)])
+    web.run_app(app, host='0.0.0.0', port=8081)

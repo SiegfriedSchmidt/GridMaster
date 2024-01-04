@@ -1,8 +1,9 @@
 import sqlite3 as sql
+from pathlib import Path
 
 
 class Database:
-    def __init__(self, path: str, clear=False):
+    def __init__(self, path: str | Path, clear=False):
         self.con = sql.connect(path)
         self.cur = self.con.cursor()
         self.init(clear)

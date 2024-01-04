@@ -74,7 +74,7 @@ const Main = () => {
             }
             setStopStyles(buttonRunRef, 'Stop')
 
-            const error = await executorRef.current?.run(message, true)
+            const error = await executorRef.current?.run(message, false)
             if (error) {
                 setTimeout(() => alert(error), 100)
             }
